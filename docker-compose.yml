@@ -1,0 +1,14 @@
+version: "3.8"
+services:
+  app:
+    build: .
+    volumes:
+      - ./:/app
+      - /app/node_modules
+    ports:
+      - 3000:3000
+  ganache:
+    image: node:14-alpine
+    ports:
+      - 8545:8545
+    command: /bin/sh -c "npm install -g ganache-cli && ganache-cli -h 0.0.0.0 -d"
