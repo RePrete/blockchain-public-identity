@@ -14,4 +14,4 @@ COPY . ./
 RUN yarn
 
 # start app
-CMD ["yarn", "start"]
+ENTRYPOINT [ "docker/entrypoint.sh" ]

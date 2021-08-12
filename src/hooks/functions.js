@@ -4,7 +4,8 @@ import Web3Modal from "web3modal";
 import WalletConnectProvider from "@walletconnect/web3-provider";
 import { useContextStore } from "../contexts/store";
 
-import ContractAbi from "../build/contracts/PostList.json"
+import PostContractAbi from "../build/contracts/PostList.json"
+import UserContractAbi from "../build/contracts/UserList.json"
 import TruffleContract from "@truffle/contract"
 // Enter a valid infura key here to avoid being rate limited
 // You can get a key for free at https://infura.io/register
@@ -12,33 +13,47 @@ const INFURA_ID = "INVALID_INFURA_KEY";
 
 const NETWORK_NAME = "ropsten";
 
-
-async function readDeployedContract(provider) {
-  const PostContract = TruffleContract(ContractAbi)
-  PostContract.setProvider(provider.provider)
-  const contract = await PostContract.deployed()
-  return contract
+async function createNewPost(content, user) {
+  await user.postContract.createPost(content, user.defaultAccount, {from: user.defaultAccount})
+  window.location.reload()
 }
 
-async function readPostList(contract) {
-  const c = await contract
-  const count = await c.postCount()
-  const list = []
-  for (var i = 0; i < count; i++) {
-    list.push((await c.posts(i))[1])
-  }
-  return list
+async function readDeployedContract(contractAbi, provider) {
+  const contract = TruffleContract(contractAbi)
+  contract.setProvider(provider.provider)
+  const c = await contract.deployed()
+  return c
+}
+
+async function readPostList(user) {
+  const posts = await user.postContract.getPastEvents('PostCreated', {
+    fromBlock: 0,
+    toBlock: 'latest',
+    filter: {from: user.defaultAccount}
+  });
+  user.postList = posts.map(x => x.args.content)
+}
+
+async function readUser(user) {
+  const u = await user.userContract.users(user.defaultAccount)
+  user.userData = u
 }
 
 async function doAppJob(setUser, provider) {
   if (provider === undefined) return
-  const contract = await readDeployedContract(provider)
+
+  const postContract = await readDeployedContract(PostContractAbi, provider)
+  const userContract = await readDeployedContract(UserContractAbi, provider)
+
+  const defaultAccount = (await provider.listAccounts())[0]
   const u = {
-    defaultAccount: (await provider.listAccounts())[0],
+    defaultAccount: defaultAccount,
     provider: provider,
-    contract: contract,
-    postList: await readPostList(contract)
+    postContract: postContract,
+    userContract: userContract,
   }
+  await readPostList(u)
+  await readUser(u)
   setUser(u)
 }
 
@@ -46,7 +61,6 @@ function useWeb3Modal(config = {}) {
   const [user, setUser] = useContextStore()
   const [provider, setProvider] = useState();
   const [autoLoaded, setAutoLoaded] = useState(false);
-  const [defaultAccount, setDefaultAccount] = useState();
   const { autoLoad = true, infuraId = INFURA_ID, NETWORK = NETWORK_NAME } = config;
 
   // Web3Modal also supports many other wallets.
@@ -67,11 +81,9 @@ function useWeb3Modal(config = {}) {
   const loadWeb3Modal = useCallback(async () => {
     const newProvider = await web3Modal.connect();
     const provider = new Web3Provider(newProvider);
-    const account = (await provider.listAccounts())[0]
     doAppJob(setUser, provider)
 
     setProvider(provider);
-    setDefaultAccount(account);
   }, [web3Modal]);
 
   const logoutOfWeb3Modal = useCallback(
@@ -88,11 +100,12 @@ function useWeb3Modal(config = {}) {
       loadWeb3Modal();
       setAutoLoaded(true);
     }
-    doAppJob(setUser, provider)
-
   }, [autoLoad, autoLoaded, loadWeb3Modal, setAutoLoaded, web3Modal.cachedProvider]);
 
   return [provider, loadWeb3Modal, logoutOfWeb3Modal];
 }
 
-export default useWeb3Modal;
+export {
+  useWeb3Modal,
+  createNewPost
+};

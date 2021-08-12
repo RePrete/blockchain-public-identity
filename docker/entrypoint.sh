@@ -1,6 +1,6 @@
 #!/bin/sh
 
-cd /app
-apk add git
 yarn
+yarn truffle compile
+yarn truffle migrate
 SKIP_PREFLIGHT_CHECK=true yarn start

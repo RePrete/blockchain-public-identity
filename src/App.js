@@ -1,13 +1,10 @@
 import React from "react";
-import { useCallback, useEffect, useState, useContext } from "react";
-import { StoreContext, useContextStore } from "./contexts/store";
+import { useState } from "react";
+import { useContextStore } from "./contexts/store";
 
-import { Body, Button, Header, Image, Link } from "./components";
+import { Body, Button, Header, Image } from "./components";
 import logo from "./ethereumLogo.png";
-import useWeb3Modal from "./hooks/useWeb3Modal";
-
-import ContractAbi from "./build/contracts/PostList.json"
-import TruffleContract from "@truffle/contract"
+import { useWeb3Modal, createNewPost } from "./hooks/functions";
 
 function WalletButton({ provider, loadWeb3Modal, logoutOfWeb3Modal }) {
   return (
@@ -24,9 +21,6 @@ function WalletButton({ provider, loadWeb3Modal, logoutOfWeb3Modal }) {
     </Button>
   );
 }
-async function createNewPost(content, user) {
-  user.contract.createPost(content, {from: user.defaultAccount})
-}
 
 function PostList({ user }) {
   return (
@@ -34,10 +28,10 @@ function PostList({ user }) {
       {user && user.postList ? user.postList.map((item, index) => { return <li key={index}>{item}</li> }) : ''}
     </ul>
   );
-  return ''
 }
 function App() {
-  const [user, setUser] = useContextStore()
+  const [user] = useContextStore()
+  window.u = user
   const [newTaskContent, setNewTaskContent] = useState()
   const [provider, loadWeb3Modal, logoutOfWeb3Modal] = useWeb3Modal();
 
@@ -47,6 +41,7 @@ function App() {
         <WalletButton provider={provider} loadWeb3Modal={loadWeb3Modal} logoutOfWeb3Modal={logoutOfWeb3Modal} />
       </Header>
       <Body>
+        <div>User: { user && user.userData ? user.userData.email : null }</div>
         <Image src={logo} alt="react-logo" />
         <form onSubmit={async (event) => { event.preventDefault(); createNewPost(newTaskContent, user) }}>
           <textarea value={newTaskContent} onChange={(event) => setNewTaskContent(event.target.value)} />
