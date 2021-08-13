@@ -3,4 +3,4 @@
 yarn
 yarn truffle compile
 yarn truffle migrate
-SKIP_PREFLIGHT_CHECK=true yarn start
+NODE_ENV=development SKIP_PREFLIGHT_CHECK=true yarn start

@@ -1,22 +1,15 @@
-import { useCallback, useEffect, useState, useContext } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Web3Provider } from "@ethersproject/providers";
 import Web3Modal from "web3modal";
 import WalletConnectProvider from "@walletconnect/web3-provider";
-import { useContextStore } from "../contexts/store";
 
-import PostContractAbi from "../build/contracts/PostList.json"
-import UserContractAbi from "../build/contracts/UserList.json"
+import UserPostContractAbi from "../build/contracts/UserPost.json"
 import TruffleContract from "@truffle/contract"
 // Enter a valid infura key here to avoid being rate limited
 // You can get a key for free at https://infura.io/register
 const INFURA_ID = "INVALID_INFURA_KEY";
 
 const NETWORK_NAME = "ropsten";
-
-async function createNewPost(content, user) {
-  await user.postContract.createPost(content, user.defaultAccount, {from: user.defaultAccount})
-  window.location.reload()
-}
 
 async function readDeployedContract(contractAbi, provider) {
   const contract = TruffleContract(contractAbi)
@@ -25,40 +18,49 @@ async function readDeployedContract(contractAbi, provider) {
   return c
 }
 
-async function readPostList(user) {
-  const posts = await user.postContract.getPastEvents('PostCreated', {
-    fromBlock: 0,
-    toBlock: 'latest',
-    filter: {from: user.defaultAccount}
-  });
-  user.postList = posts.map(x => x.args.content)
+async function readPostList(user, setUser) {
+  const result = [];
+  if (user === undefined || user.userData === undefined) return result;
+
+  for (var i = 0; i < user.userData.postCount; i++) {
+    const post = await user.contract.posts(user.defaultAccount, i)
+    result.push({ content: post.content, timestamp: new Date(post.timestamp * 1000) })
+  }
+  user.postList = result;
+  setUser(user)
 }
 
-async function readUser(user) {
-  const u = await user.userContract.users(user.defaultAccount)
-  user.userData = u
+async function readUser(setRegistered, user, setUser) {
+  const u = await user.contract.users(user.defaultAccount)
+  if (u.email === '') return;
+
+  const count = await user.contract.postCounts(user.defaultAccount)
+  console.log(count.toNumber())
+  user.userData = {
+    email: u.email,
+    firstName: u.firstName,
+    lastName: u.lastName,
+    postCount: count.toNumber(),
+  }
+  setUser(user)
+  setRegistered(true)
 }
 
-async function doAppJob(setUser, provider) {
+async function doAppJob(setRegistered, user, setUser, provider) {
   if (provider === undefined) return
 
-  const postContract = await readDeployedContract(PostContractAbi, provider)
-  const userContract = await readDeployedContract(UserContractAbi, provider)
-
+  const userPostContract = await readDeployedContract(UserPostContractAbi, provider)
   const defaultAccount = (await provider.listAccounts())[0]
-  const u = {
-    defaultAccount: defaultAccount,
-    provider: provider,
-    postContract: postContract,
-    userContract: userContract,
-  }
-  await readPostList(u)
-  await readUser(u)
-  setUser(u)
+
+  user.defaultAccount = defaultAccount
+  user.provider = provider
+  user.contract = userPostContract
+
+  await readUser(setRegistered, user, setUser)
+  await readPostList(user, setUser)
 }
 
-function useWeb3Modal(config = {}) {
-  const [user, setUser] = useContextStore()
+function useWeb3Modal(setLoading, setRegistered, user, setUser, config = {}) {
   const [provider, setProvider] = useState();
   const [autoLoaded, setAutoLoaded] = useState(false);
   const { autoLoad = true, infuraId = INFURA_ID, NETWORK = NETWORK_NAME } = config;
@@ -81,9 +83,9 @@ function useWeb3Modal(config = {}) {
   const loadWeb3Modal = useCallback(async () => {
     const newProvider = await web3Modal.connect();
     const provider = new Web3Provider(newProvider);
-    doAppJob(setUser, provider)
-
+    await doAppJob(setRegistered, user, setUser, provider)
     setProvider(provider);
+    setLoading(false)
   }, [web3Modal]);
 
   const logoutOfWeb3Modal = useCallback(
@@ -106,6 +108,5 @@ function useWeb3Modal(config = {}) {
 }
 
 export {
-  useWeb3Modal,
-  createNewPost
+  useWeb3Modal
 };

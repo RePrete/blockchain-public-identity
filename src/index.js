@@ -3,12 +3,11 @@ import ReactDOM from 'react-dom';
 import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
-import { StoreProvider } from './contexts/store'
+import { Store } from './contexts/Store'
+import 'bootstrap/dist/css/bootstrap.min.css';
 
 ReactDOM.render(
-  <StoreProvider>
-    <App />
-  </StoreProvider>,
+  <App />,
   document.getElementById('root')
 );
 
